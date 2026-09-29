@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Texture Shader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&family=Inter:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-a: #fcfcfc; --bg-b: #f4f4f4;
+    --ink: #1a1a1a; --ink-2: #6b6b6b; --ink-3: #a0a0a0;
+    --line: rgba(0,0,0,.04); --row: #f0f0f0; --fill: #e4e4e4;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    /* preview tokens: overridden from CONFIG.preview */
+    --sh-ink: #292827; --sh-sub: rgb(20 20 19 / 65%); --sh-sand: #e0ddd8; --sh-paper: #f7f5f2;
+    --sh-violet: #714cb6; --sh-font: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: linear-gradient(180deg, var(--bg-a), var(--bg-b)); color: var(--ink); font: 300 12px/1.5 var(--mono); overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+  /* ---------- stage ---------- */
+  #stage { position: fixed; inset: 0; right: 332px; display: grid; place-items: center; transition: right .5s var(--ease); }
+  body.hidden-panel #stage { right: 0; }
+  .host { position: relative; overflow: hidden; }
+  .host canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .view { display: none; }
+  body[data-view="canvas"] #v-canvas, body[data-view="plate"] #v-plate, body[data-view="strip"] #v-strip { display: block; }
+  body[data-view="canvas"] #stage { right: 0; }
+
+  #v-canvas { position: fixed; inset: 0; }
+  #v-canvas .host { position: absolute; inset: 0; }
+
+  /* Plate recipe: flat sand card, texture plate flush right, mock bleeding bottom, satellite breaking the corner */
+  #v-plate { width: min(1080px, calc(100vw - 332px - 64px)); }
+  body.hidden-panel #v-plate { width: min(1180px, calc(100vw - 64px)); }
+  .card { position: relative; aspect-ratio: 16 / 6.2; background: var(--sh-sand); border-radius: 16px; overflow: hidden; font-family: var(--sh-font); color: var(--sh-ink); }
+  .card .plate { position: absolute; top: 0; right: 0; bottom: 0; width: 24%; }
+  .card .strip { position: absolute; left: 41.4%; top: 30%; bottom: 0; width: 3.6%; }
+  .card .copy { position: absolute; left: 5%; top: 50%; transform: translateY(-50%); width: 36%; }
+  .card .eyebrow { font-size: clamp(11px, 1.2vw, 16px); font-weight: 460; color: var(--sh-sub); margin-bottom: 12px; }
+  .card h2 { margin: 0; font-size: clamp(18px, 2.4vw, 34px); font-weight: 460; letter-spacing: -0.0275em; line-height: 1.2; }
+  .mock { position: absolute; left: 45%; top: 22%; width: 30%; height: 92%; background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px rgb(71 69 67 / 6%), 0 12px 24px -12px rgb(71 69 67 / 18%); padding: 4% 3%; }
+  .mock .t { height: 9px; width: 60%; background: #292827; border-radius: 3px; opacity: .85; margin-bottom: 14px; }
+  .mock .l { height: 6px; background: #d9d6d1; border-radius: 3px; margin: 8px 0; }
+  .mock .hl { background: #fbeea0; }
+  .sat { position: absolute; left: 70%; top: 10%; width: 18.5%; height: 96%; background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px rgb(71 69 67 / 6%), 0 16px 32px -12px rgb(71 69 67 / 24%); padding: 3% 1.6%; font-size: clamp(10px, 1.05vw, 14px); }
+  .sat b { font-weight: 540; font-size: 1.2em; display: block; margin-bottom: 10px; }
+  .sat .bubble { background: #f2f0eb; border-radius: 10px; padding: 8px 10px; color: var(--sh-sub); }
+  .sat .l { height: 5px; background: #e3e0db; border-radius: 3px; margin: 9px 0; }
+
+  /* Strip recipe: full-bleed texture, headline left, outline button far right, one baseline */
+  #v-strip { position: fixed; left: 0; right: 332px; top: 50%; transform: translateY(-50%); transition: right .5s var(--ease); }
+  body.hidden-panel #v-strip { right: 0; }
+  #v-strip .host { height: min(42vh, 380px); }
+  #v-strip .row { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 7%; font-family: var(--sh-font); pointer-events: none; }
+  #v-strip h2 { margin: 0; color: #fff; font-size: clamp(26px, 3.4vw, 60px); font-weight: 460; letter-spacing: -0.0275em; line-height: 1.1; }
+  #v-strip .btn { color: #fff; font-size: clamp(13px, 1.3vw, 18px); font-weight: 600; border-radius: 12px; padding: 12px 24px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 90%); white-space: nowrap; }
+  body.light-strip #v-strip h2 { color: var(--sh-ink); }
+  body.light-strip #v-strip .btn { color: var(--sh-ink); box-shadow: inset 0 0 0 1px var(--sh-ink); }
+
+  /* ---------- panel ---------- */
+  #panel { position: fixed; top: 16px; right: 16px; bottom: 16px; width: 300px; display: flex; flex-direction: column; gap: 14px; padding: 18px 16px 16px; border-radius: 20px; background: rgb(255 255 255 / 78%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--line); box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 8px 24px rgb(0 0 0 / 6%), 0 24px 48px rgb(0 0 0 / 6%); transition: transform .5s var(--ease), opacity .4s var(--ease); z-index: 10; }
+  body.hidden-panel #panel { transform: translateX(calc(100% + 24px)); opacity: 0; pointer-events: none; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; }
+  .head h1 { margin: 0; font: 400 13px var(--mono); }
+  .head span { color: var(--ink-3); }
+  .lbl { color: var(--ink-3); margin: 0 0 6px; }
+  .seg { display: flex; gap: 2px; padding: 3px; background: var(--row); border-radius: 12px; }
+  .seg button { flex: 1; min-width: 0; border: 0; background: transparent; font: 300 11px var(--mono); color: var(--ink-2); padding: 6px 0; border-radius: 9px; cursor: pointer; transition: color .2s var(--ease), background-color .2s var(--ease), box-shadow .2s var(--ease); }
+  .seg button:hover { color: var(--ink); }
+  .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 0 0 .5px rgb(0 0 0 / 8%), 0 1px 3px rgb(0 0 0 / 8%); }
+  .seg button:active { transform: scale(.98); }
+  .tabs { margin-top: 2px; }
+  .body { flex: 1; min-height: 0; overflow: auto; margin: 0 -4px; padding: 0 4px; }
+  .pane { display: none; flex-direction: column; gap: 6px; }
+  .pane.on { display: flex; }
+  .slider { position: relative; height: 30px; border-radius: 10px; background: var(--row); overflow: hidden; }
+  .slider .f { position: absolute; inset: 0 auto 0 0; background: var(--fill); transition: background-color .2s var(--ease); }
+  .slider:hover .f { background: #dadada; }
+  .slider label { position: absolute; left: 10px; top: 0; line-height: 30px; color: var(--ink-2); pointer-events: none; transition: color .2s var(--ease); }
+  .slider output { position: absolute; right: 10px; top: 0; line-height: 30px; color: var(--ink-3); pointer-events: none; }
+  .slider:hover label, .slider:focus-within label { color: var(--ink); }
+  .slider input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+  .sw { display: flex; align-items: center; gap: 8px; height: 30px; }
+  .sw .name { width: 70px; color: var(--ink-2); }
+  .sw input[type=color] { width: 20px; height: 20px; border: 0; padding: 0; border-radius: 6px; background: none; cursor: pointer; }
+  .sw input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  .sw input[type=color]::-webkit-color-swatch { border: 0; border-radius: 6px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%); }
+  .sw input[type=text] { width: 80px; border: 0; background: transparent; font: 300 12px var(--mono); color: var(--ink-3); outline: none; padding: 2px 0; transition: color .2s var(--ease); }
+  .sw input[type=text]:focus { color: var(--ink); }
+  .toggle { display: flex; align-items: center; gap: 8px; height: 30px; color: var(--ink-2); cursor: pointer; }
+  .toggle input { margin: 0; accent-color: #555; }
+  .foot { display: flex; gap: 6px; align-items: center; }
+  .btn-g { flex: 1; border: 0; background: #e9e9e9; color: var(--ink); font: 400 12px var(--mono); padding: 9px 12px; border-radius: 12px; cursor: pointer; transition: background-color .2s var(--ease), transform .15s var(--ease); }
+  .btn-g:hover { background: #e0e0e0; }
+  .btn-g:active, .icon:active, .reset:active { transform: scale(.98); }
+  .icon { width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: var(--row); border-radius: 12px; cursor: pointer; color: var(--ink-2); transition: color .2s var(--ease), background-color .2s var(--ease); }
+  .icon:hover { color: var(--ink); background: #e9e9e9; }
+  .reset { border: 1px solid rgb(200 80 80 / 22%); background: transparent; color: rgb(160 70 70 / 80%); font: 300 11px var(--mono); padding: 8px 10px; border-radius: 12px; cursor: pointer; }
+  .hint { color: var(--ink-3); font-size: 11px; }
+  #pill { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; background: rgb(24 24 24 / 82%); color: #f4f4f4; backdrop-filter: blur(12px); border-radius: 999px; padding: 8px 16px; font: 300 12px var(--mono); transition: transform .5s var(--ease), opacity .4s var(--ease); pointer-events: none; z-index: 20; }
+  #pill.on { transform: translate(-50%, 0); opacity: 1; }
+  #show { position: fixed; top: 16px; right: 16px; z-index: 9; opacity: 0; pointer-events: none; transition: opacity .3s var(--ease); background: rgb(255 255 255 / 70%); backdrop-filter: blur(20px); }
+  body.hidden-panel #show { opacity: 1; pointer-events: auto; }
+  @media (hover: none) { .slider:hover .f { background: var(--fill); } .seg button:hover { color: var(--ink-2); } }
+  @media (max-width: 760px) {
+    #stage, #v-strip, body.hidden-panel #stage { right: 0; bottom: 46vh; }
+    #v-strip { right: 0; top: 25vh; }
+    #v-plate { width: calc(100vw - 32px); }
+    #panel { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; height: 44vh; }
+    body.hidden-panel #panel { transform: translateY(calc(100% + 24px)); }
+  }
+</style>
+</head>
+<body data-view="plate">
+
+<div id="stage">
+  <div class="view" id="v-canvas"><div class="host" data-host="canvas"></div></div>
+
+  <div class="view" id="v-plate">
+    <div class="card">
+      <div class="plate host" data-host="plate"></div>
+      <div class="strip host" data-host="strip-sliver" aria-hidden="true"></div>
+      <div class="copy"><div class="eyebrow" id="c-eyebrow"></div><h2 id="c-head"></h2></div>
+      <div class="mock"><div class="t"></div><div class="l" style="width:90%"></div><div class="l" style="width:84%"></div><div class="l" style="width:70%"></div><div class="l hl" style="width:78%;margin-top:18px"></div><div class="l" style="width:88%;margin-top:18px"></div><div class="l" style="width:62%"></div></div>
+      <div class="sat"><b id="c-sat"></b><div class="bubble" id="c-bubble"></div><div class="l" style="width:70%;margin-top:16px"></div><div class="l" style="width:86%"></div><div class="l" style="width:60%"></div></div>
+    </div>
+  </div>
+
+  <div class="view" id="v-strip">
+    <div class="host" data-host="strip"></div>
+    <div class="row"><h2 id="c-strip"></h2><span class="btn" id="c-btn"></span></div>
+  </div>
+</div>
+
+<button class="icon" id="show" title="Show panel (H)" aria-label="Show panel"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="3" width="12" height="10" rx="2.5"/><path d="M10 3v10"/></svg></button>
+
+<aside id="panel" aria-label="Texture controls">
+  <div class="head"><h1 id="title">Textures</h1><span>H hides</span></div>
+  <div>
+    <p class="lbl">Preset</p>
+    <div class="seg" id="presets"></div>
+  </div>
+  <div>
+    <p class="lbl">Preview</p>
+    <div class="seg" id="views"><button data-v="plate" class="on">Plate</button><button data-v="strip">Strip</button><button data-v="canvas">Canvas</button></div>
+  </div>
+  <div class="seg tabs" id="tabs"><button data-t="shape" class="on">Shape</button><button data-t="surface">Surface</button><button data-t="colour">Colour</button></div>
+  <div class="body">
+    <div class="pane on" data-p="shape" id="p-shape"></div>
+    <div class="pane" data-p="surface" id="p-surface"></div>
+    <div class="pane" data-p="colour" id="p-colour"></div>
+  </div>
+  <div class="foot">
+    <button class="btn-g" id="export">Export PNG</button>
+    <button class="icon" id="shuffle" title="New seed" aria-label="New seed"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2 5h2.5c2 0 3 1 4 3s2 3 4 3H14M2 11h2.5c1 0 1.7-.3 2.3-.9M11 3l3 2-3 2M11 9l3 2-3 2M9.2 5.9C9.8 5.3 10.5 5 11.5 5H14"/></svg></button>
+    <button class="icon" id="play" title="Pause (Space)" aria-label="Pause"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="3" width="2.6" height="10" rx="1"/><rect x="9.4" y="3" width="2.6" height="10" rx="1"/></svg></button>
+    <button class="reset" id="reset">Reset</button>
+  </div>
+</aside>
+
+<div id="pill"></div>
+
+<script id="config" type="application/json">
+{
+  "name": "Example",
+  "preview": {
+    "ground": "#e0ddd8", "ink": "#292827", "inkMuted": "rgb(20 20 19 / 65%)", "radius": "16px",
+    "font": "'Inter', system-ui, sans-serif",
+    "eyebrow": "Docs", "headline": "One surface for any kind of work.",
+    "satelliteTitle": "Assistant", "satelliteText": "Summarise this brief and flag open questions.",
+    "stripHeadline": "Make it your best workday yet", "stripButton": "Get started"
+  },
+  "presets": {
+    "Aurora": { "c": ["#05262a", "#0c4243", "#1d4f7a", "#4a52cf", "#8a7cf2"], "hi": "#b9b0ff", "scale": 0.85, "warp": 1.9, "stretch": 4.6, "angle": -30, "detail": 2.6, "speed": 0.3, "contrast": 0.95, "sheen": 0.22, "folds": 1.6, "hatch": 0, "hatchGap": 7, "hatchAngle": 45, "grain": 0.04, "lightStrip": false },
+    "Plate": { "c": ["#bcd7f5", "#d4c7ff", "#f3b3de", "#ffdcc9", "#fff4f8"], "hi": "#ffffff", "scale": 1.3, "warp": 1.7, "stretch": 1.6, "angle": 18, "detail": 3.0, "speed": 0.22, "contrast": 0.85, "sheen": 0.38, "folds": 2.0, "hatch": 0.5, "hatchGap": 7, "hatchAngle": 45, "grain": 0.02, "lightStrip": true }
+  }
+}
+</script>
+<script>
+// ---------- config: filled per reference from DESIGN.md (see references/textures-and-shaders.md) ----------
+const CONFIG = JSON.parse(document.getElementById('config').textContent);
+const PRESETS = CONFIG.presets;
+const SLIDERS = {
+  shape: [
+    ['scale', 'Scale', .3, 4, .01], ['warp', 'Warp', 0, 4, .01], ['stretch', 'Stretch', 1, 6, .01],
+    ['angle', 'Angle', -90, 90, 1], ['detail', 'Detail', 1, 6, .01], ['speed', 'Speed', 0, 1.5, .01],
+  ],
+  surface: [
+    ['contrast', 'Contrast', .5, 2.2, .01], ['sheen', 'Sheen', 0, 1, .01], ['folds', 'Folds', .5, 6, .01],
+    ['hatch', 'Hatch', 0, 1, .01], ['hatchGap', 'Hatch gap', 3, 18, .1], ['hatchAngle', 'Hatch angle', -90, 90, 1],
+    ['grain', 'Grain', 0, .12, .001],
+  ],
+};
+const STORE = 'texture-shader:' + (CONFIG.name || 'reference');
+const COLOUR_NAMES = ['Deep', 'Ground', 'Mid', 'Light', 'Peak', 'Highlight'];
+
+let state = {}, preset = Object.keys(PRESETS)[0], seed = 3.7, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const load = (name) => { preset = name; state = JSON.parse(JSON.stringify(PRESETS[name])); };
+try { const s = JSON.parse(localStorage.getItem(STORE) || 'null'); if (s && PRESETS[s.preset]) { preset = s.preset; state = { ...PRESETS[s.preset], ...s.state }; seed = s.seed ?? seed; } else load(preset); } catch { load(preset); }
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ preset, state, seed })); } catch {} };
+
+
+// Preview copy and the reference's own ground/ink/font/radius, from CONFIG.preview.
+const pv = CONFIG.preview || {};
+document.title = (CONFIG.name ? CONFIG.name + ' · ' : '') + 'Texture Shader';
+document.getElementById('title').textContent = (CONFIG.name ? CONFIG.name + ' ' : '') + 'textures';
+for (const [id, key] of [['c-eyebrow', 'eyebrow'], ['c-head', 'headline'], ['c-sat', 'satelliteTitle'], ['c-bubble', 'satelliteText'], ['c-strip', 'stripHeadline'], ['c-btn', 'stripButton']]) document.getElementById(id).textContent = pv[key] ?? '';
+const rootStyle = document.documentElement.style;
+for (const [k, v] of Object.entries({ '--sh-ink': pv.ink, '--sh-sub': pv.inkMuted, '--sh-sand': pv.ground, '--sh-font': pv.font })) if (v) rootStyle.setProperty(k, v);
+if (pv.radius) document.querySelector('.card').style.borderRadius = pv.radius;
+if (pv.fontHref) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = pv.fontHref; document.head.append(l); }
+
+// ---------- WebGL ----------
+const canvas = document.createElement('canvas');
+const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: false });
+const VERT = `#version 300 es
+in vec2 p; void main(){ gl_Position = vec4(p, 0., 1.); }`;
+const FRAG = `#version 300 es
+precision highp float;
+uniform vec2 uRes; uniform float uTime, uSeed, uDpr;
+uniform vec3 uC[5]; uniform vec3 uHi;
+uniform float uScale, uWarp, uStretch, uAngle, uDetail, uContrast, uSheen, uFolds, uHatch, uHatchGap, uHatchAngle, uGrain;
+out vec4 o;
+
+vec2 h2(vec2 p){ p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3))); return -1. + 2. * fract(sin(p) * 43758.5453123); }
+float h1(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float noise(vec2 p){                         // gradient noise, quintic fade
+  vec2 i = floor(p), f = fract(p), u = f * f * f * (f * (f * 6. - 15.) + 10.);
+  return mix(mix(dot(h2(i), f), dot(h2(i + vec2(1, 0)), f - vec2(1, 0)), u.x),
+             mix(dot(h2(i + vec2(0, 1)), f - vec2(0, 1)), dot(h2(i + vec2(1, 1)), f - vec2(1, 1)), u.x), u.y);
+}
+float fbm(vec2 p){                           // fractional octave count = soft detail slider
+  float a = .5, s = 0., n = 0.;
+  mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+  for (int i = 0; i < 6; i++) {
+    float w = clamp(uDetail - float(i), 0., 1.);
+    s += a * w * noise(p); n += a * w;
+    p = m * p; a *= .5;
+  }
+  return s / max(n, 1e-3);
+}
+vec3 ramp(float t){                          // five smooth stops
+  t = clamp(t, 0., 1.) * 4.;
+  vec3 c = mix(uC[0], uC[1], smoothstep(0., 1., t));
+  c = mix(c, uC[2], smoothstep(1., 2., t));
+  c = mix(c, uC[3], smoothstep(2., 3., t));
+  return mix(c, uC[4], smoothstep(3., 4., t));
+}
+mat2 rot(float a){ float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+
+void main(){
+  vec2 p = (gl_FragCoord.xy - .5 * uRes) / uRes.y;
+  float t = uTime;
+  // Rotate, then stretch along one axis: long silky streaks like the aurora strip.
+  vec2 q = rot(radians(uAngle)) * p;
+  q.x /= uStretch;
+  q = q * uScale * 2. + uSeed;
+  // Two-pass domain warp (flowing, folded fabric of colour).
+  vec2 w1 = vec2(fbm(q + vec2(0., .11 * t)), fbm(q + vec2(5.2, 1.3) - .08 * t));
+  vec2 w2 = vec2(fbm(q + uWarp * w1 + vec2(1.7, 9.2) + .05 * t), fbm(q + uWarp * w1 + vec2(8.3, 2.8) - .06 * t));
+  float f = fbm(q + uWarp * w2) * .5 + .5;
+  f = clamp((f - .5) * uContrast * 1.6 + .5, 0., 1.);
+  vec3 col = ramp(f);
+  // Sheen: thin bright ridges where the warped field folds over itself.
+  float ridge = abs(sin(3.14159 * (f * uFolds + length(w2) * .9)));
+  float sheen = pow(1. - ridge, 8.) * smoothstep(.25, .75, f);
+  col = mix(col, uHi, sheen * uSheen);
+  // Iridescent drift: tiny hue lean along the warp, keeps flat areas alive.
+  col += (vec3(.02, -.01, .03) * w1.x + vec3(-.02, .015, .01) * w2.y) * .8;
+  // Hatch: 45° hairlines in screen space (px), appearing in soft patches like the plates.
+  vec2 hp = rot(radians(uHatchAngle)) * (gl_FragCoord.xy / uDpr);
+  float d = abs(fract(hp.x / uHatchGap) - .5) * uHatchGap;
+  float line = 1. - smoothstep(.2, .9, d);
+  float spots = smoothstep(.42, .62, fbm(p * 1.1 + vec2(3.1, 7.4) + .02 * t + uSeed) * .5 + .5);
+  col = mix(col, vec3(1.), line * spots * uHatch * .6);
+  // Grain (animated, subtle): stops banding in dark gradients.
+  col += (h1(gl_FragCoord.xy + fract(t * 7.) * 91.) - .5) * uGrain;
+  o = vec4(clamp(col, 0., 1.), 1.);
+}`;
+const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG)); gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const U = {}; for (const n of ['uRes', 'uTime', 'uSeed', 'uDpr', 'uC', 'uHi', 'uScale', 'uWarp', 'uStretch', 'uAngle', 'uDetail', 'uContrast', 'uSheen', 'uFolds', 'uHatch', 'uHatchGap', 'uHatchAngle', 'uGrain']) U[n] = gl.getUniformLocation(prog, n);
+const rgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+
+// The one canvas moves between hosts (plate / strip / full canvas).
+// A second, tiny canvas copy feeds the plate card's thin gradient sliver.
+let host = null, dpr = 1, time = 0, last = performance.now();
+const sliver = document.createElement('canvas'); sliver.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+const sctx = sliver.getContext('2d');
+const hosts = Object.fromEntries([...document.querySelectorAll('[data-host]')].map((h) => [h.dataset.host, h]));
+hosts['strip-sliver'].append(sliver);
+const size = () => {
+  if (!host) return;
+  const r = host.getBoundingClientRect();
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = Math.max(2, Math.round(r.width * dpr)), h = Math.max(2, Math.round(r.height * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const sr = hosts['strip-sliver'].getBoundingClientRect();
+  sliver.width = Math.max(2, Math.round(sr.width)); sliver.height = Math.max(2, Math.round(sr.height));
+};
+const ro = new ResizeObserver(size);
+const mount = (name) => { host = hosts[name]; host.append(canvas); ro.disconnect(); ro.observe(host); ro.observe(hosts['strip-sliver']); size(); };
+
+const draw = () => {
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.uniform2f(U.uRes, canvas.width, canvas.height);
+  gl.uniform1f(U.uTime, time); gl.uniform1f(U.uSeed, seed); gl.uniform1f(U.uDpr, dpr);
+  gl.uniform3fv(U.uC, state.c.flatMap(rgb)); gl.uniform3fv(U.uHi, rgb(state.hi));
+  for (const k of ['scale', 'warp', 'stretch', 'angle', 'detail', 'contrast', 'sheen', 'folds', 'hatch', 'hatchGap', 'hatchAngle', 'grain']) gl.uniform1f(U['u' + k[0].toUpperCase() + k.slice(1)], state[k]);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  // Blue→pink sliver behind the mock (plate view only): a slice of the same texture.
+  if (document.body.dataset.view === 'plate') sctx.drawImage(canvas, canvas.width * .1, 0, canvas.width * .15, canvas.height, 0, 0, sliver.width, sliver.height);
+};
+const loop = (now) => {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (playing) time += dt * state.speed;
+  draw();
+  requestAnimationFrame(loop);
+};
+
+// ---------- UI ----------
+const $ = (s) => document.querySelector(s);
+const presetsEl = $('#presets');
+presetsEl.innerHTML = Object.keys(PRESETS).map((n) => `<button data-p="${n}">${n}</button>`).join('');
+const fmt = (k, v) => (k === 'angle' || k === 'hatchAngle' ? Math.round(v) + '°' : k === 'grain' ? v.toFixed(3) : (+v).toFixed(2));
+const buildSliders = () => {
+  for (const [pane, list] of Object.entries(SLIDERS)) {
+    $('#p-' + pane).innerHTML = list.map(([k, label, min, max, step]) => `<div class="slider" data-k="${k}" data-min="${min}" data-max="${max}"><div class="f"></div><label for="s-${k}">${label}</label><output></output><input id="s-${k}" type="range" min="${min}" max="${max}" step="${step}"></div>`).join('');
+  }
+  $('#p-colour').innerHTML = state.c.concat(state.hi).map((c, i) => `<div class="sw"><span class="name">${COLOUR_NAMES[i]}</span><input type="color" data-i="${i}" aria-label="${COLOUR_NAMES[i]} colour"><input type="text" data-i="${i}" spellcheck="false" aria-label="${COLOUR_NAMES[i]} hex"></div>`).join('') +
+    `<label class="toggle"><input type="checkbox" id="lightStrip">Dark text on strip</label><p class="hint">Stops run dark → light; Highlight tints the sheen ridges.</p>`;
+};
+const sync = () => {
+  document.querySelectorAll('.slider').forEach((s) => {
+    const k = s.dataset.k, v = state[k], min = +s.dataset.min, max = +s.dataset.max;
+    s.querySelector('input').value = v; s.querySelector('output').textContent = fmt(k, v);
+    s.querySelector('.f').style.width = ((v - min) / (max - min)) * 100 + '%';
+  });
+  const cols = state.c.concat(state.hi);
+  document.querySelectorAll('#p-colour input[type=color]').forEach((el) => { el.value = cols[+el.dataset.i]; });
+  document.querySelectorAll('#p-colour input[type=text]').forEach((el) => { if (document.activeElement !== el) el.value = cols[+el.dataset.i]; });
+  $('#lightStrip').checked = !!state.lightStrip;
+  document.body.classList.toggle('light-strip', !!state.lightStrip);
+  presetsEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.p === preset));
+  save();
+};
+buildSliders(); sync();
+
+document.addEventListener('input', (e) => {
+  const s = e.target.closest('.slider');
+  if (s) { state[s.dataset.k] = +e.target.value; sync(); return; }
+  if (e.target.matches('#p-colour input[type=color]')) { setColour(+e.target.dataset.i, e.target.value); }
+  if (e.target.matches('#p-colour input[type=text]') && /^#[0-9a-f]{6}$/i.test(e.target.value.trim())) setColour(+e.target.dataset.i, e.target.value.trim());
+  if (e.target.id === 'lightStrip') { state.lightStrip = e.target.checked; sync(); }
+});
+const setColour = (i, v) => { if (i < 5) state.c[i] = v; else state.hi = v; sync(); };
+presetsEl.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; load(b.dataset.p); sync(); });
+$('#views').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; setView(b.dataset.v); });
+$('#tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  $('#tabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('on', p.dataset.p === b.dataset.t));
+});
+const setView = (v) => {
+  document.body.dataset.view = v;
+  $('#views').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === v));
+  mount(v === 'plate' ? 'plate' : v);
+};
+const setPlaying = (on) => {
+  playing = on;
+  $('#play').innerHTML = on ? '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="3" width="2.6" height="10" rx="1"/><rect x="9.4" y="3" width="2.6" height="10" rx="1"/></svg>' : '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.2v9.6c0 .5.5.8.9.5l7.2-4.8c.4-.3.4-.8 0-1L5.9 2.7c-.4-.3-.9 0-.9.5z"/></svg>';
+  $('#play').title = on ? 'Pause (Space)' : 'Play (Space)';
+};
+$('#play').onclick = () => setPlaying(!playing);
+$('#shuffle').onclick = () => { seed = Math.round(Math.random() * 1000) / 10; save(); toast('New seed ' + seed); };
+let undo = null;
+$('#reset').onclick = () => { undo = { preset, state: JSON.parse(JSON.stringify(state)), seed }; load(preset); sync(); toast('Reset · <u style="cursor:pointer">undo</u>', true); };
+const pill = $('#pill'); let pillT;
+const toast = (html, withUndo) => {
+  pill.innerHTML = html; pill.classList.add('on'); pill.style.pointerEvents = withUndo ? 'auto' : 'none';
+  clearTimeout(pillT); pillT = setTimeout(() => { pill.classList.remove('on'); pill.style.pointerEvents = 'none'; }, 2600);
+};
+pill.addEventListener('click', () => { if (!undo) return; preset = undo.preset; state = undo.state; seed = undo.seed; undo = null; sync(); pill.classList.remove('on'); });
+
+// Export: re-render the texture at 2× its on-screen size (min 2400px wide) and save a PNG.
+$('#export').onclick = () => {
+  const w0 = canvas.width, h0 = canvas.height, k = Math.max(2, 2400 / w0);
+  canvas.width = Math.round(w0 * k); canvas.height = Math.round(h0 * k);
+  const d0 = dpr; dpr = d0 * k; draw();
+  canvas.toBlob((b) => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${(CONFIG.name || 'texture').toLowerCase().replace(/\W+/g, '-')}-${preset.toLowerCase()}-${seed}.png`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast(`Exported ${canvas.width}×${canvas.height}`);
+    canvas.width = w0; canvas.height = h0; dpr = d0;
+  }, 'image/png');
+};
+const togglePanel = () => document.body.classList.toggle('hidden-panel');
+$('#show').onclick = togglePanel;
+addEventListener('keydown', (e) => {
+  if (e.target.matches('input[type=text]')) return;
+  if (e.key === 'h' || e.key === 'H') togglePanel();
+  if (e.key === ' ') { e.preventDefault(); setPlaying(!playing); }
+});
+
+setPlaying(playing);
+setView(document.body.dataset.view);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

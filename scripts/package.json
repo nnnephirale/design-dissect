@@ -1,0 +1,11 @@
+{
+  "name": "design-dissect-scripts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

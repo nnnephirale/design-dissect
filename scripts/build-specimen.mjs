@@ -112,6 +112,7 @@ const html = `<!doctype html>
 <body><div class="wrap">
 <header class="sp"><h1>${esc(title)}</h1><p>${esc(mood)}</p></header>
 ${shots.length ? `<section class="sp" id="s-source"><h2>Source</h2><div class="compare">${shots.slice(0, 2).map((s) => `<img src="${s}" alt="${s}">`).join('')}</div></section>` : ''}
+${components ? `<section class="sp" id="s-components"><h2>Components</h2><div class="comp">${components}</div></section>` : ''}
 <section class="sp" id="s-semantic"><h2>Surfaces &amp; ink (semantic)</h2><div class="grid" id="semantic"></div></section>
 <section class="sp" id="s-palette"><h2>Palette (primitives)</h2><div class="grid" id="palette"></div></section>
 <section class="sp" id="s-type"><h2>Type scale</h2><div id="type"></div></section>
@@ -119,7 +120,6 @@ ${shots.length ? `<section class="sp" id="s-source"><h2>Source</h2><div class="c
 <section class="sp" id="s-space"><h2>Spacing</h2><div class="bars" id="space"></div></section>
 ${bands.length || blockmap ? `<section class="sp" id="s-composition"><h2>Composition</h2><div class="compo">${blockmap ? `<img class="bm" src="blockmap.png" alt="block map">` : ''}<div class="bands">${bands.map((b) => `<img src="${b}" alt="${b}">`).join('')}</div></div></section>` : ''}
 ${shader ? `<section class="sp" id="s-textures"><h2>Textures</h2><iframe class="tex" src="shader/index.html" title="texture shader"></iframe></section>` : ''}
-${components ? `<section class="sp" id="s-components"><h2>Components</h2><div class="comp">${components}</div></section>` : ''}
 ${shots.includes('shot-desktop-full.png') ? `<section class="sp"><h2>Source, full page</h2><details class="sp"><summary>Show full-page screenshot</summary><img src="shot-desktop-full.png" style="width:100%;border-radius:12px;margin-top:12px" alt="full page"></details></section>` : ''}
 </div>
 <script id="feedback" type="application/json" data-me="${esc(me)}">${JSON.stringify(feedback).replace(/</g, '\\u003c')}</script>

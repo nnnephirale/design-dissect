@@ -86,6 +86,17 @@ Borders/rings: <values>
 Shadows: <full stacks, named>
 Blur: <where, how much>
 
+## Interactions
+(From `interact.mjs`; see `reading-interactions.md`.) Library: <Framer Motion / GSAP / CSS only …>
+### Motion vocabulary
+| Name | What moves | Timing (exact curve or spring) | Evidence |
+|------|-----------|--------------------------------|----------|
+Paste-ready springs: `--spring-*: linear(...)`
+### Per component
+- **<component>:** hover <…> · press <…> · click <…> (trigger → what moves → from→to → ms → curve)
+### Interaction rules
+- <e.g. "everything that appears blurs in; selection is shown by motion; springs for movement, 150ms for colour">
+
 ## Motion & interaction
 Durations <…> · easing <…> · what animates <…>
 Idioms: hover <…> · active <…> · focus <…> · entrances <…> · reduced-motion <…>

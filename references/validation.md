@@ -42,6 +42,7 @@ reference's band close-ups and fold screenshot. View both PNGs, then check:
 | Separation | Same strategy (rings vs shadows vs tone) |
 | Composition | The panel recipe reads (partial plate, bleed, satellite), with the documented proportions |
 | Refusals | None of the Don'ts is broken |
+| Interactions | Replicas measured with `interact.mjs` match the original within ~10% (duration, curve, ζ, distance) |
 | App-ness | Density and sizes are app-appropriate, not a scaled-down marketing page |
 
 **When a check fails, fix the document first.** Missing rule → add it. Wrong rule → correct it.

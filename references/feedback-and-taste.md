@@ -109,5 +109,43 @@ After every round, tell the user in one line what changed and where:
 - "Noted for this dashboard: page title one step smaller."
 - "Promoted to lasting: headings lighter than reference scale (third project)."
 
+**Show it on the specimen (only when the `specimen comments` setting is on).** Append the feedback to `<library>/<site>/feedback.json` for
+the reference it concerns, then rebuild the specimen (`node build-specimen.mjs <out>`). Each
+entry becomes a comment card beside the section it's about: a faint `]` bracket on the
+section, and a card at 50% opacity that goes to 100% on hover. Keep one entry per piece of
+feedback, and update its `status` and `reply` rather than adding new entries.
+
+**On-page comments are the strongest evidence of taste.** They are the user's own words, at
+the moment of looking, pinned to the exact section. `feedback.json` is that evidence; the three
+layers are what it distils into. So agents *do* read it: before design or UI work, read the
+open comments and the recent ones across every reference, and route each open one through
+§1–§4. With the `design-feedback` MCP installed (`feedback/install.sh` registers it), use its tools:
+`get_feedback` to read, `add_feedback` to log chat feedback, `resolve_feedback` to reply,
+route and close. They also rebuild the specimen. Without it, read and edit the files directly.
+
+```json
+{ "id": "sh-1", "anchor": "composition", "author": "<user's name or You>", "date": "2026-09-29T21:10",
+  "text": "<the user's words, lightly trimmed>", "layer": "reference | project | candidate | lasting",
+  "target": "<where it went, e.g. DESIGN.md › Composition › Panel recipes>", "status": "open | resolved",
+  "reply": { "author": "Claude", "date": "…", "text": "<one or two lines on what changed>" } }
+```
+
+Only open comments appear on the specimen. Resolving one (by the user's tick, or by you after acting on it) removes it from the page; it stays in `feedback.json` as the record. The specimen is interactive. The user can tick to resolve (with undo), select text and press ⌘⇧M (or ⌥⌘M,
+or the floating + button) to add a comment with a `quote`, and edit or delete from ⋮.
+Every change syncs to `feedback.json` through the design-feedback service on `:4777`
+(`feedback/server.mjs`), whether the page is open at `http://localhost:4777/<site>/specimen.html`
+or straight from Finder (`file://`). The user never starts it by hand: `build-specimen.mjs`
+writes an `STARTTHIS.command` beside every specimen, which starts the service quietly if
+needed and opens the page. Point the user at that file when showing a specimen. The service
+merges per id (newest wins, nothing missing is erased), so a stale tab never undoes an agent's
+reply. If it isn't running, changes wait in the browser and sync on the next visit;
+`node scripts/serve-specimen.mjs <out>` serves a single folder without installing anything. Entries the user added have `status: "open"` and no `layer`. When asked to act
+on them, route each one, then set `reply`, `layer`, `target`, `status` and `updated` (newest
+`updated` wins when the page merges browser-side edits).
+
+Anchors are the specimen's sections: `source`, `semantic`, `palette`, `type`, `shape`, `space`,
+`composition`, `textures` and `components`, or `label:<text>` to point at one component block
+by its `data-label`.
+
 If the taste file is version-controlled or synced (e.g. a dotfiles repo), commit and push it
 the way that repo expects.

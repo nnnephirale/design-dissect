@@ -23,6 +23,7 @@ Read these from the user's global agent instructions (AGENTS.md / CLAUDE.md), un
 |---|---|---|
 | `library` | `./design-systems/` in the current project, else `~/design-systems/` | Where each `<site-slug>/` folder goes |
 | `taste file` | `~/design-systems/TASTE.md` (created on first use) | Lasting preferences, shared across all references and projects |
+| `specimen comments` | off | When on, the user's feedback is shown as comment cards on the specimen |
 | `precedence default` | *ask* | When a project applies a reference: does the reference or the user's existing style win? |
 
 Never hard-code a user's name or paths into this skill. Per-user values live in their own
@@ -60,6 +61,18 @@ cd "<skill-dir>/scripts" && node run.mjs "<url>" "<abs-out-dir>" --dark
 cd "<skill-dir>/scripts" && node digest.mjs "<abs-out-dir>"
 cd "<skill-dir>/scripts" && node probe.mjs "<url>" "<abs-out-dir>"
 ```
+
+Then capture the micro-interactions, which are part of the craft and are often what makes
+a reference worth studying:
+
+```bash
+cd "<skill-dir>/scripts" && node interact.mjs "<url>" "<abs-out-dir>"
+```
+
+See `references/reading-interactions.md`. If the reference draws with `<canvas>` (WebGL
+shaders, 2D generative effects), read its code rather than its pixels: `node canvas.mjs
+"<url>" "<abs-out-dir>" --hover="<trigger>"` captures the shaders, uniforms, textures and draw
+calls (`references/textures-and-shaders.md`).
 
 `run.mjs` measures at 1440×900 and 390×844 (and dark with `--dark`). It captures screenshots,
 the composition (`compose-desktop.json`, `blockmap.png`, `band-NN.png` close-ups) and hides
@@ -103,7 +116,9 @@ semantic token layer (`action`, `surface`, `border-focus`), build the palette fr
 ### 5. Write the outputs
 
 Write `<out>/DESIGN.md` using the structure in `references/design-md-template.md`, plus
-`tokens.css`, `tailwind-theme.css` and `components.html`. `references/example-superhuman.md`
+`tokens.css`, `tailwind-theme.css` and `components.html`. Components are *working* replicas:
+the signature interactions have real behaviour, with measured values, verified by running
+`interact.mjs` on the served specimen (`reading-interactions.md`). `references/example-superhuman.md`
 shows the level of specificity to aim for. Then:
 
 ```bash
@@ -160,6 +175,12 @@ applied project, a DESIGN.md section), follow `references/feedback-and-taste.md`
   guidance, and merge repeats into one sharper rule. The taste file has a cap.
 - **Tell the user in one line** what changed and where, e.g. "noted for this dashboard" or
   "promoted to lasting: …".
+- **Optional: show it on the specimen.** If the user's settings turn on `specimen comments`,
+  add the entry to the reference's `feedback.json` and rebuild the specimen, which renders it
+  as a comment card on the relevant section.
+- **Read the on-page comments first.** Comments the user leaves on a specimen are the most
+  direct evidence of their taste. Before design work, read open and recent ones across all
+  references (the `design-feedback` MCP's `get_feedback`, or the `feedback.json` files).
 
 ## Stage 4 — Apply to a web app
 
@@ -179,11 +200,18 @@ Only when the user wants their project restyled. Read `references/applying.md` f
 | `scripts/run.mjs` | Measurement, composition, screenshots, band close-ups, block map |
 | `scripts/extract.js` · `scripts/compose.js` | In-page measurers (also pasteable) |
 | `scripts/digest.mjs` | Condenses everything into `digest.md` |
-| `scripts/probe.mjs` | Hover probe for interactions |
-| `scripts/build-specimen.mjs` | Token specimen page |
+| `scripts/probe.mjs` | Quick hover probe |
+| `scripts/canvas.mjs` | Canvas and WebGL capture: GLSL, uniforms over time, textures as PNGs, 2D draw calls, frame strips |
+| `scripts/interact.mjs` | Micro-interaction capture: hover, press, click and type, frame-sampled, with WAAPI and spring detection, strips, and a library scan |
+| `scripts/build-specimen.mjs` · `scripts/specimen-feedback.js` | Specimen page, with interactive comment cards, plus `STARTTHIS.command` (double-click: starts the comment service if needed and opens the page) |
+| `scripts/serve-specimen.mjs` | Serves one reference folder so on-page comments save to `feedback.json` |
+| `feedback/server.mjs` | Comment service: serves the library on `:4777` and saves comments from served or `file://` specimens |
+| `feedback/install.sh` | Registers the MCP with Claude Code, Codex and Gemini (`--at-login` also runs the service at login) |
+| `feedback/mcp.mjs` | `design-feedback` MCP: `list_references`, `get_feedback`, `add_feedback`, `resolve_feedback` (no dependencies) |
 | `scripts/validate.mjs` | Captures the validation screen and builds the comparison page |
 | `assets/texture-shader.html` | WebGL texture template, filled from DESIGN.md |
 | `references/reading-composition.md` | Step 3 |
+| `references/reading-interactions.md` | Capturing, naming, replicating and verifying micro-interactions |
 | `references/reading-the-rules.md` | Step 4 |
 | `references/design-md-template.md` | Step 5 |
 | `references/textures-and-shaders.md` | Step 6 |

@@ -51,6 +51,16 @@ whether procedural texture, light, distortion or motion actually defines the ref
 shader, built from a bundled template with previews that show it *in composition* (a plate
 behind a UI card, a strip, full canvas).
 
+**Comments on the specimen are the strongest signal.** Select any text on `specimen.html` and
+press ⌘⇧M (or the floating + button) to comment, Google Docs style. Tick to resolve, edit or
+delete with undo. Every comment saves to that reference's `feedback.json`, whether the page was
+opened from Finder or served. You never start a server: each specimen folder gets a
+`STARTTHIS.command`, and double-clicking it starts the small comment service in the background
+and opens the page. The bundled **design-feedback MCP** gives every agent your comments across
+all references (`get_feedback`), logs feedback you give in chat (`add_feedback`) and records
+what changed when one is acted on (`resolve_feedback`). Agents read open and recent comments
+before design work, so what you say on the page carries into future projects.
+
 ## Install
 
 Works with Claude Code and other agents that load `SKILL.md` skills (e.g. Codex CLI).
@@ -59,6 +69,15 @@ Works with Claude Code and other agents that load `SKILL.md` skills (e.g. Codex 
 git clone https://github.com/nnnephirale/design-dissect ~/.claude/skills/design-dissect
 cd ~/.claude/skills/design-dissect/scripts && npm i
 ```
+
+To give your agents the comments (registers the design-feedback MCP with Claude Code, Codex and
+Gemini, whichever are installed; pass your library folder if it isn't `~/design-systems`):
+
+```bash
+bash ~/.claude/skills/design-dissect/feedback/install.sh ~/Design/systems
+```
+
+Restart your agents afterwards. The MCP has no dependencies beyond Node.
 
 This needs Node 18+. The scripts use Playwright and fall back to your installed Google Chrome,
 so no browser download is needed if you have Chrome. For Codex, clone into
@@ -81,6 +100,7 @@ Add a block to your global agent instructions (`~/.claude/CLAUDE.md` or `AGENTS.
 - **library:** ~/Design/systems/            <!-- where <site>/ folders go; default ./design-systems/ -->
 - **taste file:** ~/Design/TASTE.md         <!-- or an existing design-preferences file; default ~/design-systems/TASTE.md -->
 - **precedence default:** ask               <!-- reference wins | house style wins | ask -->
+- **specimen comments:** on                 <!-- show feedback as comment cards on the specimen -->
 ```
 
 ## Output
@@ -88,6 +108,7 @@ Add a block to your global agent instructions (`~/.claude/CLAUDE.md` or `AGENTS.
 ```
 <library>/<site>/
   DESIGN.md  tokens.css  tailwind-theme.css  components.html  specimen.html
+  STARTTHIS.command  feedback.json   (double-click to open the specimen; your comments)
   digest.md  blockmap.png  band-NN.png  probe.md  shot-*.png  measure-*.json  compose-desktop.json
   validation/  screen.html  screen-*.png  compare.html
   shader/      index.html   (only when offered and accepted)

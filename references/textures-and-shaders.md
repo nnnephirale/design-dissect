@@ -51,6 +51,38 @@ headline, and full canvas. Don't write a shader from scratch.
 GLSL ES 3.0 reserves some ordinary words, `patch` among them, as identifiers. A compile error
 will say "reserved word".
 
+## Reading a reference's own canvas / WebGL
+
+When the reference renders with `<canvas>` (shaders, 2D drawing, generative effects), read it
+instead of guessing from pixels. The page must hand the browser its shaders and draw calls, so
+they can be intercepted:
+
+```bash
+cd "<skill-dir>/scripts" && node canvas.mjs "<url>" "<abs-out-dir>" [--hover="css"] [--click="css"] [--move]
+```
+
+It captures:
+- every WebGL program's GLSL (`canvas/prog-N.vert/.frag`)
+- each uniform classified as constant, time-like (with its rate), or animated with a range.
+  This tells you the inputs: time, grow, pointer, ripples.
+- the textures, saved as PNGs (`canvas/tex-*.png`), including data textures like distance fields
+- draws per second
+- for 2D canvases, a call histogram, gradients and the first frame's calls in order
+- frame strips
+
+Many effects only run on a trigger, so pass `--hover` or `--click` for the control that starts
+them, or `--move` for pointer-reactive ones.
+
+Then:
+1. **Understand the technique** from the shader and uniforms, and write it up in DESIGN.md
+   (Interactions › Canvas / WebGL): its inputs, what it computes, and what drives it.
+2. **Recreate it** in the specimen as your own implementation of the technique. The captured
+   code is for understanding; for the user's own products, write their own shader and use
+   their own textures rather than shipping the reference's code or assets.
+3. **Verify** by running `canvas.mjs` on the served specimen with the same trigger. Compare
+   uniform ranges (e.g. a grow value that overshoots to ~1.19) and the frame strips.
+   WebGL textures loaded from `file://` are blocked, so serve the folder.
+
 ## Taste guardrails
 
 - **Composition first.** A texture must serve the rules (strip height, plate coverage). Keep

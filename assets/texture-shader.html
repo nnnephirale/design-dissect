@@ -36,11 +36,11 @@
   /* Plate recipe: flat sand card, texture plate flush right, mock bleeding bottom, satellite breaking the corner */
   #v-plate { width: min(1080px, calc(100vw - 332px - 64px)); }
   body.hidden-panel #v-plate { width: min(1180px, calc(100vw - 64px)); }
-  .card { position: relative; aspect-ratio: 16 / 6.2; background: var(--sh-sand); border-radius: 16px; overflow: hidden; font-family: var(--sh-font); color: var(--sh-ink); }
+  .card { position: relative; aspect-ratio: 16 / 6.2; background: var(--ground, var(--sh-sand)); border-radius: 16px; overflow: hidden; font-family: var(--sh-font); color: var(--ground-ink, var(--sh-ink)); transition: background-color .5s var(--ease), color .5s var(--ease); }
   .card .plate { position: absolute; top: 0; right: 0; bottom: 0; width: 24%; }
   .card .strip { position: absolute; left: 41.4%; top: 30%; bottom: 0; width: 3.6%; }
   .card .copy { position: absolute; left: 5%; top: 50%; transform: translateY(-50%); width: 36%; }
-  .card .eyebrow { font-size: clamp(11px, 1.2vw, 16px); font-weight: 460; color: var(--sh-sub); margin-bottom: 12px; }
+  .card .eyebrow { font-size: clamp(11px, 1.2vw, 16px); font-weight: 460; color: var(--ground-sub, var(--sh-sub)); margin-bottom: 12px; transition: color .5s var(--ease); }
   .card h2 { margin: 0; font-size: clamp(18px, 2.4vw, 34px); font-weight: 460; letter-spacing: -0.0275em; line-height: 1.2; }
   .mock { position: absolute; left: 45%; top: 22%; width: 30%; height: 92%; background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px rgb(71 69 67 / 6%), 0 12px 24px -12px rgb(71 69 67 / 18%); padding: 4% 3%; }
   .mock .t { height: 9px; width: 60%; background: #292827; border-radius: 3px; opacity: .85; margin-bottom: 14px; }
@@ -91,6 +91,10 @@
   .sw input[type=color]::-webkit-color-swatch { border: 0; border-radius: 6px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%); }
   .sw input[type=text] { width: 80px; border: 0; background: transparent; font: 300 12px var(--mono); color: var(--ink-3); outline: none; padding: 2px 0; transition: color .2s var(--ease); }
   .sw input[type=text]:focus { color: var(--ink); }
+  body:not([data-view="plate"]) .plate-only { display: none !important; }
+  .mock, .sat { color: var(--sh-ink); }
+  .gr { display: flex; gap: 6px; align-items: center; margin: 2px 0 10px; }
+  .gr .icon { width: 32px; height: 32px; }
   .toggle { display: flex; align-items: center; gap: 8px; height: 30px; color: var(--ink-2); cursor: pointer; }
   .toggle input { margin: 0; accent-color: #555; }
   .foot { display: flex; gap: 6px; align-items: center; }
@@ -148,7 +152,7 @@
     <p class="lbl">Preview</p>
     <div class="seg" id="views"><button data-v="plate" class="on">Plate</button><button data-v="strip">Strip</button><button data-v="canvas">Canvas</button></div>
   </div>
-  <div class="seg tabs" id="tabs"><button data-t="shape" class="on">Shape</button><button data-t="surface">Surface</button><button data-t="colour">Colour</button></div>
+  <div class="seg tabs" id="tabs"><button data-t="shape" class="on">Shape</button><button data-t="surface">Surface</button><button data-t="colour" class="plate-only">Colour</button></div>
   <div class="body">
     <div class="pane on" data-p="shape" id="p-shape"></div>
     <div class="pane" data-p="surface" id="p-surface"></div>
@@ -337,18 +341,47 @@ const buildSliders = () => {
   for (const [pane, list] of Object.entries(SLIDERS)) {
     $('#p-' + pane).innerHTML = list.map(([k, label, min, max, step]) => `<div class="slider" data-k="${k}" data-min="${min}" data-max="${max}"><div class="f"></div><label for="s-${k}">${label}</label><output></output><input id="s-${k}" type="range" min="${min}" max="${max}" step="${step}"></div>`).join('');
   }
-  $('#p-colour').innerHTML = state.c.concat(state.hi).map((c, i) => `<div class="sw"><span class="name">${COLOUR_NAMES[i]}</span><input type="color" data-i="${i}" aria-label="${COLOUR_NAMES[i]} colour"><input type="text" data-i="${i}" spellcheck="false" aria-label="${COLOUR_NAMES[i]} hex"></div>`).join('') +
+  $('#p-colour').innerHTML = `<div class="sw plate-only"><span class="name">Card</span><input type="color" id="gcol" aria-label="Card colour"><input type="text" id="ghex" spellcheck="false" aria-label="Card hex"><button class="icon" id="gshuffle" style="width:28px;height:28px;margin-left:auto" title="New card colour (G)" aria-label="New ground colour"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2 5h2.5c2 0 3 1 4 3s2 3 4 3H14M2 11h2.5c1 0 1.7-.3 2.3-.9M11 3l3 2-3 2M11 9l3 2-3 2M9.2 5.9C9.8 5.3 10.5 5 11.5 5H14"/></svg></button></div>` + state.c.concat(state.hi).map((c, i) => `<div class="sw"><span class="name">${COLOUR_NAMES[i]}</span><input type="color" data-i="${i}" aria-label="${COLOUR_NAMES[i]} colour"><input type="text" data-i="${i}" spellcheck="false" aria-label="${COLOUR_NAMES[i]} hex"></div>`).join('') +
     `<label class="toggle"><input type="checkbox" id="lightStrip">Dark text on strip</label><p class="hint">Stops run dark → light; Highlight tints the sheen ridges.</p>`;
 };
+// ---------- colour: OKLab/OKLCH helpers for the ground randomiser ----------
+const hex2rgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+const lin = (c) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4, gam = (c) => c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055;
+const oklab = (h) => { const [r, g, b] = hex2rgb(h).map(lin); const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b); return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s]; };
+const fromLch = (L, C, H) => {
+  // reduce chroma until the colour fits sRGB
+  for (let c = C; c >= 0; c -= 0.004) {
+    const a = c * Math.cos(H), b = c * Math.sin(H);
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3, s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+    const rgb = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+    if (rgb.every((v) => v >= -0.001 && v <= 1.001)) return '#' + rgb.map((v) => Math.round(Math.min(1, Math.max(0, gam(Math.max(0, v)))) * 255).toString(16).padStart(2, '0')).join('');
+  }
+  return '#808080';
+};
+const rnd = (a, b) => a + Math.random() * (b - a);
+// Tonal: a ground far from the plate in lightness, in the plate's own hue family.
+const pickGround = () => {
+  const labs = state.c.map(oklab), avg = labs.reduce((s, x) => s.map((v, i) => v + x[i] / labs.length), [0, 0, 0]);
+  const [L, a, b] = avg, H = Math.atan2(b, a), deep = L > 0.6;
+  return fromLch(deep ? rnd(0.22, 0.38) : rnd(0.88, 0.95), deep ? rnd(0.03, 0.09) : rnd(0.01, 0.035), H + rnd(-0.5, 0.5));
+};
+const shuffleGround = () => { state.ground = pickGround(); sync(); toast(`Ground ${state.ground}`); };
+
 const sync = () => {
+  // Plate ground: the flat card behind the texture. Ink flips for legibility on dark grounds.
+  const g = state.ground, rs = document.documentElement.style;
+  if (g) { const dark = oklab(g)[0] < 0.6; rs.setProperty('--ground', g); rs.setProperty('--ground-ink', dark ? '#ffffff' : '#292827'); rs.setProperty('--ground-sub', dark ? 'rgb(255 255 255 / 72%)' : 'rgb(20 20 19 / 65%)'); }
+  else { rs.removeProperty('--ground'); rs.removeProperty('--ground-ink'); rs.removeProperty('--ground-sub'); }
+  const gv = g || getComputedStyle(document.documentElement).getPropertyValue('--sh-sand').trim() || '#e0ddd8';
+  if ($('#gcol')) { $('#gcol').value = gv; if (document.activeElement !== $('#ghex')) $('#ghex').value = gv; }
   document.querySelectorAll('.slider').forEach((s) => {
     const k = s.dataset.k, v = state[k], min = +s.dataset.min, max = +s.dataset.max;
     s.querySelector('input').value = v; s.querySelector('output').textContent = fmt(k, v);
     s.querySelector('.f').style.width = ((v - min) / (max - min)) * 100 + '%';
   });
   const cols = state.c.concat(state.hi);
-  document.querySelectorAll('#p-colour input[type=color]').forEach((el) => { el.value = cols[+el.dataset.i]; });
-  document.querySelectorAll('#p-colour input[type=text]').forEach((el) => { if (document.activeElement !== el) el.value = cols[+el.dataset.i]; });
+  document.querySelectorAll('#p-colour input[type=color][data-i]').forEach((el) => { el.value = cols[+el.dataset.i]; });
+  document.querySelectorAll('#p-colour input[type=text][data-i]').forEach((el) => { if (document.activeElement !== el) el.value = cols[+el.dataset.i]; });
   $('#lightStrip').checked = !!state.lightStrip;
   document.body.classList.toggle('light-strip', !!state.lightStrip);
   presetsEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.p === preset));
@@ -359,13 +392,18 @@ buildSliders(); sync();
 document.addEventListener('input', (e) => {
   const s = e.target.closest('.slider');
   if (s) { state[s.dataset.k] = +e.target.value; sync(); return; }
-  if (e.target.matches('#p-colour input[type=color]')) { setColour(+e.target.dataset.i, e.target.value); }
-  if (e.target.matches('#p-colour input[type=text]') && /^#[0-9a-f]{6}$/i.test(e.target.value.trim())) setColour(+e.target.dataset.i, e.target.value.trim());
+  if (e.target.matches('#p-colour input[type=color][data-i]')) { setColour(+e.target.dataset.i, e.target.value); }
+  if (e.target.matches('#p-colour input[type=text][data-i]') && /^#[0-9a-f]{6}$/i.test(e.target.value.trim())) setColour(+e.target.dataset.i, e.target.value.trim());
   if (e.target.id === 'lightStrip') { state.lightStrip = e.target.checked; sync(); }
+  if (e.target.id === 'gcol') { state.ground = e.target.value; sync(); }
+  if (e.target.id === 'ghex' && /^#[0-9a-f]{6}$/i.test(e.target.value.trim())) { state.ground = e.target.value.trim(); sync(); }
 });
 const setColour = (i, v) => { if (i < 5) state.c[i] = v; else state.hi = v; sync(); };
 presetsEl.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; load(b.dataset.p); sync(); });
 $('#views').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; setView(b.dataset.v); });
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#gshuffle')) shuffleGround();
+});
 $('#tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   $('#tabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
@@ -373,6 +411,8 @@ $('#tabs').addEventListener('click', (e) => {
 });
 const setView = (v) => {
   document.body.dataset.view = v;
+  // Strip and Canvas show Shape and Surface only; leave the Colour tab if it was open.
+  if (v !== 'plate' && $('#tabs [data-t=colour]').classList.contains('on')) $('#tabs [data-t=shape]').click();
   $('#views').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === v));
   mount(v === 'plate' ? 'plate' : v);
 };
@@ -382,8 +422,26 @@ const setPlaying = (on) => {
   $('#play').title = on ? 'Pause (Space)' : 'Play (Space)';
 };
 $('#play').onclick = () => setPlaying(!playing);
-$('#shuffle').onclick = () => { seed = Math.round(Math.random() * 1000) / 10; save(); toast('New seed ' + seed); };
+// Shuffle everything: shape + surface sliders within tasteful sub-ranges, a fresh harmonious palette
+// (OKLCH ramp around a random hue), a matching ground, and a new seed. Undo restores the last state.
 let undo = null;
+const RANGES = { scale: [.6, 2.2], warp: [.8, 3.2], stretch: [1, 5], angle: [-60, 60], detail: [2, 4.8], speed: [.15, .45], contrast: [.8, 1.5], sheen: [.15, .6], folds: [1.2, 3.5], hatch: [0, .6], hatchGap: [5, 10], hatchAngle: [30, 60], grain: [.015, .05] };
+const shuffleAll = () => {
+  undo = { preset, state: JSON.parse(JSON.stringify(state)), seed };
+  for (const [k, [a, b]] of Object.entries(RANGES)) { let v = rnd(a, b); if (k === 'hatch' && Math.random() < .5) v = 0; state[k] = +v.toFixed(k === 'grain' ? 3 : 2); }
+  state.angle = Math.round(state.angle); state.hatchAngle = Math.round(state.hatchAngle);
+  const H = rnd(0, Math.PI * 2), spread = rnd(.4, 1.1), dark = Math.random() < .5;
+  // dark ramps read as aurora/dusk; light ramps as pastel plates
+  const Ls = dark ? [.16, .3, .45, .6, .74] : [.78, .84, .88, .92, .96], Cs = dark ? [.04, .08, .13, .15, .12] : [.06, .08, .09, .07, .04];
+  state.c = Ls.map((L, i) => fromLch(L, Cs[i] * rnd(.8, 1.2), H + spread * (i / 4 - .5)));
+  state.hi = fromLch(dark ? .86 : .99, dark ? .08 : .02, H + spread * .5);
+  state.lightStrip = !dark;
+  state.ground = pickGround();
+  seed = Math.round(Math.random() * 1000) / 10;
+  sync(); toast('Shuffled everything · <u style="cursor:pointer">undo</u>', true);
+};
+$('#shuffle').onclick = shuffleAll;
+$('#shuffle').title = 'Shuffle everything (S)';
 $('#reset').onclick = () => { undo = { preset, state: JSON.parse(JSON.stringify(state)), seed }; load(preset); sync(); toast('Reset · <u style="cursor:pointer">undo</u>', true); };
 const pill = $('#pill'); let pillT;
 const toast = (html, withUndo) => {
@@ -409,6 +467,8 @@ $('#show').onclick = togglePanel;
 addEventListener('keydown', (e) => {
   if (e.target.matches('input[type=text]')) return;
   if (e.key === 'h' || e.key === 'H') togglePanel();
+  if (e.key === 'g' || e.key === 'G') shuffleGround();
+  if (e.key === 's' || e.key === 'S') shuffleAll();
   if (e.key === ' ') { e.preventDefault(); setPlaying(!playing); }
 });
 

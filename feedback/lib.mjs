@@ -43,7 +43,9 @@ export async function references() {
 export async function findReference(name) {
   const refs = await references();
   const n = String(name || '').toLowerCase().replace(/^\/+|\/+$/g, '');
-  return refs.find((r) => r.name.toLowerCase() === n) || refs.find((r) => r.name.toLowerCase().split('/').pop() === n);
+  // Folders may carry an order prefix (01_superhuman), so "superhuman" finds it too.
+  const bare = (x) => x.toLowerCase().split('/').pop().replace(/^\d+[_-]/, '');
+  return refs.find((r) => r.name.toLowerCase() === n) || refs.find((r) => r.name.toLowerCase().split('/').pop() === n) || refs.find((r) => bare(r.name) === bare(n));
 }
 
 export async function readFeedback(dir) {

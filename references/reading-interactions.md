@@ -48,6 +48,11 @@ Then per component: trigger → what moves → from → to → duration → curv
   too. They're collapsed in the report, so don't count them as separate motions.
 - **Focus artefacts.** Outline colours animating after a mouse press are usually the browser,
   not design.
+- **Perceived blur.** A crossfade between two busy images often *looks* blurred mid-swap. Sample
+  `filter` per frame before adding one: resurf's "blurry" screen swap is opacity only.
+- **Duration-based springs** (Framer `{duration, bounce}`): damping ratio ζ = 1 − bounce. Sample the
+  damped spring into a `linear()` curve of that duration, then check its 90% time against the
+  measured motion.
 - **Headless timing** is accurate to about one frame (16ms). Screenshots in strips are
   approximate (±30ms).
 
